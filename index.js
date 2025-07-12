@@ -15,7 +15,7 @@ import {
 // CONFIGURATION AND STATE
 export const EXTENSION_NAME = "WritersRoom";
 const LOG_PREFIX = `[${EXTENSION_NAME}]`;
-const EXTENSION_FOLDER_PATH = `scripts/extensions/third-party/${EXTENSION_NAME}`;
+const EXTENSION_FOLDER_PATH = `scripts/extensions/third-party/Writer-s-Room`;
 
 // State Variables
 let isPipelineRunning = false;
