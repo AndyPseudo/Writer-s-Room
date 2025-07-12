@@ -1,0 +1,12 @@
+{
+    "display_name": "Writer's Room",
+    "author": "Assistant & Human",
+    "version": "1.0.0",
+    "description": "A two-model synthesis system for enhanced AI writing quality. Combines outputs from complementary models for superior results.",
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "styles.css",
+    "homePage": "",
+    "loading_order": 1000
+}

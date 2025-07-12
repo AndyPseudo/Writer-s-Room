@@ -1,0 +1,94 @@
+<div class="writers-room-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Writer's Room</b>
+            <div class="inline-drawer-icon fa-solid fa-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <p>A two-model synthesis system for enhanced AI writing quality. Combines outputs from complementary models for superior results.</p>
+            <hr>
+            
+            <!-- Main Enable Toggle -->
+            <div class="form-group">
+                <label class="checkbox_label">
+                    <input type="checkbox" id="wr_writersRoomEnabled">
+                    <span><b>Enable Writer's Room Pipeline</b> (Controlled by UI button)</span>
+                </label>
+                <small>When enabled, each user message triggers a multi-stage generation process using different models.</small>
+            </div>
+
+            <!-- Pipeline Settings Container -->
+            <div id="wr_pipeline_settings_container" class="wr-settings-group-box">
+                
+                <!-- Stage A: Consistent Prose -->
+                <div class="wr-stage-config">
+                    <label class="checkbox_label">
+                        <input type="checkbox" id="wr_stageAEnabled">
+                        <span><b>Stage A - Consistent Prose:</b> <span id="wr_stageADisplay" class="wr-api-display"></span></span>
+                    </label>
+                    <div class="wr-controls-wrapper">
+                        <select id="wr_stageAPreset" class="text_pole" title="Select a parameter preset"></select>
+                        <button class="menu_button wr-select-api-btn" data-stage="stageA" title="Select API & Model">
+                            <i class="fa-solid fa-satellite-dish"></i>
+                        </button>
+                        <button class="menu_button wr-edit-prompt-btn" data-stage="stageA" title="Edit Stage A Prompt">
+                            <i class="fa-solid fa-file-pen"></i>
+                        </button>
+                    </div>
+                    <small>Focused on character consistency, lore adherence, and natural prose flow. Recommended: Deepseek R1</small>
+                </div>
+
+                <!-- Stage B: Creative Elements -->
+                <div class="wr-stage-config">
+                    <label class="checkbox_label">
+                        <input type="checkbox" id="wr_stageBEnabled">
+                        <span><b>Stage B - Creative Elements:</b> <span id="wr_stageBDisplay" class="wr-api-display"></span></span>
+                    </label>
+                    <div class="wr-controls-wrapper">
+                        <select id="wr_stageBPreset" class="text_pole" title="Select a parameter preset"></select>
+                        <button class="menu_button wr-select-api-btn" data-stage="stageB" title="Select API & Model">
+                            <i class="fa-solid fa-satellite-dish"></i>
+                        </button>
+                        <button class="menu_button wr-edit-prompt-btn" data-stage="stageB" title="Edit Stage B Prompt">
+                            <i class="fa-solid fa-file-pen"></i>
+                        </button>
+                    </div>
+                    <small>Brings creativity, fresh perspectives, and unexpected elements. Recommended: Gemini 2.5 Pro</small>
+                </div>
+
+                <!-- Synthesis Stage -->
+                <div class="wr-stage-config">
+                    <label class="checkbox_label">
+                        <input type="checkbox" id="wr_synthesisEnabled">
+                        <span><b>Synthesis - Combine & Filter:</b> <span id="wr_synthesisDisplay" class="wr-api-display"></span></span>
+                    </label>
+                    <div class="wr-controls-wrapper">
+                        <select id="wr_synthesisPreset" class="text_pole" title="Select a parameter preset"></select>
+                        <button class="menu_button wr-select-api-btn" data-stage="synthesis" title="Select API & Model">
+                            <i class="fa-solid fa-satellite-dish"></i>
+                        </button>
+                        <button class="menu_button wr-edit-prompt-btn" data-stage="synthesis" title="Edit Synthesis Prompt">
+                            <i class="fa-solid fa-file-pen"></i>
+                        </button>
+                    </div>
+                    <small>Combines the best elements while filtering out issues like verbatim quoting. Recommended: Deepseek R1</small>
+                </div>
+
+                <hr style="margin: 20px 0;">
+                
+                <!-- Usage Instructions -->
+                <div class="wr-usage-info">
+                    <h4>How to Use:</h4>
+                    <ol>
+                        <li>Configure your preferred models for each stage above</li>
+                        <li>Enable Writer's Room using the toggle button in the chat interface</li>
+                        <li>Send a message - the pipeline will automatically run before generation</li>
+                        <li>The final synthesized instruction will be injected into your prompt</li>
+                    </ol>
+                    <p><strong>Note:</strong> This system makes multiple API calls per message and will increase generation time and costs.</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
