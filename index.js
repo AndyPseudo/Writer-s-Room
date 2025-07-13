@@ -81,7 +81,7 @@ const defaultSettings = {
     synthesisModel: 'deepseek-reasoner',
     synthesisSource: '',
     synthesisCustomUrl: '',
-    synthesisPrompt: '',
+    synthesisPrompt: '' // <--- COMMA REMOVED HERE
 };
 
 const API_TO_SELECTOR_MAP = {
@@ -229,7 +229,6 @@ async function showApiEditorPopup(stage) {
     }
     apiSelect.value = currentApi;
 
-    // Corrected populateModels function
     const populateModels = async (api) => {
         modelSelect.innerHTML = '<option value="">Loading...</option>';
         modelGroup.style.display = 'block';
@@ -252,7 +251,7 @@ async function showApiEditorPopup(stage) {
         }
         
         let sourceSelect = null;
-        for (let i = 0; i < 50; i++) { // Wait up to 5 seconds
+        for (let i = 0; i < 50; i++) {
             sourceSelect = document.querySelector(sourceSelectorId);
             if (sourceSelect && sourceSelect.options.length > 1) break;
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -452,7 +451,6 @@ function queueReadyTask(task) {
 // INITIALIZATION
 async function initializeExtensionCore() {
     try {
-        // Clear stale results from any previous session on load
         lastPipelineResults = { stageA: null, stageB: null, synthesis: null };
         wrLogger.log("Initializing Writer's Room...");
         
