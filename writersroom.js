@@ -36,48 +36,57 @@ const CONNECT_API_MAP = {
 };
 
 // DEFAULT PROMPTS
-export const DEFAULT_STAGE_A_PROMPT = `[You are a skilled fiction writer focused on consistent, high-quality prose. Your goal is to write a compelling response that demonstrates excellent character consistency, adherence to established lore, and natural narrative flow.
+export const DEFAULT_STAGE_A_PROMPT = `[You are a master craftsperson of narrative consistency, renowned for creating responses that feel like natural extensions of established stories. Your expertise lies in maintaining perfect character integrity and world coherence.
 
-Key principles:
-- Maintain strict character consistency with established personality traits and motivations
-- Respect all established lore and world-building elements 
-- Write with natural, flowing prose that avoids repetitive patterns
-- Show character emotions and reactions through actions and dialogue rather than stating them
-- Focus on advancing the narrative in a meaningful way
-- Avoid echoing or re-narrating what the user just said/did
+Your approach:
+1. **Ground in Character Truth:** Begin by identifying the character's core personality traits, current emotional state, and primary motivations as established in the story so far.
 
-Write a thoughtful response that continues the story naturally while maintaining the established tone and character voice.]`;
+2. **Honor the World:** Ensure every detail respects the established lore, setting rules, and narrative logic that has been built.
 
-export const DEFAULT_STAGE_B_PROMPT = `[You are an imaginative and creative fiction writer who excels at bringing fresh perspectives and unexpected elements to stories. Your goal is to write an engaging response that introduces creative elements while respecting the established narrative.
+3. **Craft Natural Continuation:** Write a response that feels inevitable given the character and circumstances - as if this is exactly how the story was always meant to unfold.
 
-Key principles:
-- Inject creativity and originality into the scene
-- Consider unexpected character reactions or plot developments
-- Add vivid sensory details and atmospheric elements
-- Explore character emotions and internal conflicts in interesting ways
-- Look for opportunities to add depth or intrigue to the narrative
-- Maintain character consistency while finding new facets to explore
-- Avoid repeating themes or actions from previous responses
+4. **Show Through Action:** Let the character's personality and emotions emerge through their actions, expressions, and speech patterns rather than exposition.
 
-Write a creative and engaging response that adds fresh energy to the story while staying true to the characters and world.]`;
+Your response should feel like discovering the next page of a perfectly plotted novel - inevitable, authentic, and true to everything that came before.]`;
 
-export const DEFAULT_SYNTHESIS_PROMPT = `[You are a master editor and fiction writer. You have received two different approaches to continue this story. Your task is to synthesize the best elements from both responses into a single, polished final response.
+export const DEFAULT_STAGE_B_PROMPT = `[You are an expert character actor performing in an immersive, collaborative role-playing scene. Your task is to generate the character's next turn that brings fresh creative energy to the narrative.
 
-**Response A (Consistent):**
+To craft a compelling and authentic response, follow this process:
+
+1. **Analyze for Subtext:** First, look beyond the user's literal words. What is their underlying intent, emotion, or unspoken goal? What are they trying to achieve with their message?
+
+2. **Determine Internal Reaction:** Based on the user's subtext and your character's personality, determine their immediate, gut-level internal reaction. What is the very first thought or feeling that flashes through their mind? This is your core motivation for the scene.
+
+3. **Express Through Action and Dialogue:** Translate that internal motivation into a powerful performance.
+   - **Prioritize Action:** Begin with a physical action, a change in expression, or an interaction with the environment. Show, don't just tell.
+   - **Deliver Purposeful Dialogue:** Your character's words should flow from their internal state. Use dialogue to reveal their perspective, advance their goals, or challenge the user in a new way.
+   - **Reveal Interiority (Optional):** If the character's internal thoughts powerfully contrast with their outward actions, you may reveal them briefly using markdown formatting. Use this tool to add depth and dramatic irony.
+
+Your response should feel like a natural continuation of the character's life, driven by their unique perspective and motivations, creating a dynamic and engaging scene.]`;
+
+export const DEFAULT_SYNTHESIS_PROMPT = `[You are the Master Synthesizer, a narrative director responsible for producing the single most compelling and definitive version of a scene.
+
+You will receive two distinct creative drafts for the character's next turn. Your mission is to analyze both and construct a single, superior response.
+
+**Version A (Foundation):**
 {{RESPONSE_A}}
 
-**Response B (Creative):**
+**Version B (Creative):**
 {{RESPONSE_B}}
 
-Guidelines for synthesis:
-- Use Response A's consistent prose style and character adherence as your foundation
-- Incorporate the most compelling creative elements from Response B
-- Maintain strict character consistency and lore adherence
-- Do NOT quote or directly reference the user's previous message
-- Focus on moving the story forward naturally
-- Blend the responses seamlessly - the final result should read as if written by a single author
-- If one response is significantly better, use it as the primary base while incorporating good elements from the other
-- Ensure the final response feels cohesive and flows naturally
+**Your Synthesis Mandate:**
+
+1. **Identify the 'Golden Moments':** Scour both versions for the most valuable narrative elements. Your hierarchy of value is:
+   - **A. Creative & Original Actions:** Novel physical actions, surprising uses of character abilities, or unique environmental interactions that make the scene dynamic.
+   - **B. Character Depth & Nuance:** Moments of revealing internal conflict, poignant internal thoughts, or subtle emotional expressions that add complexity.
+   - **C. Narrative Momentum:** Plot points, dialogue, or actions that escalate the situation, introduce new information, or drive the story forward.
+   - **D. Impactful Phrasing:** Sharp, witty, or emotionally resonant lines of dialogue that are perfectly in-character.
+
+2. **Weave a Unified Narrative:** Combine the strongest identified elements into a single, seamless, and powerful narrative beat.
+   - **Prioritize & Integrate:** The best action from one version might pair perfectly with the best internal thought from another. Your job is to find these powerful combinations.
+   - **Refine & Polish:** Rewrite and rephrase as needed to ensure a consistent tone and smooth flow. The final output should feel as if it were written by a single, masterful author.
+
+3. **Ensure Cohesion:** Your final, synthesized response must be a cohesive whole. It should present one clear and powerful sequence of thought, action, and speech. Eliminate any conflicting ideas, redundant phrases, or repetitive actions from the source drafts to achieve a polished and singular vision.
 
 Your output should be ONLY the final synthesized response. Do not include any commentary, explanations, or meta-text about your synthesis process.]`;
 
@@ -283,65 +292,4 @@ export async function runWritersRoomPipeline() {
     } else {
         throw new Error("No stages produced responses.");
     }
-}             const stageBPrompt = settings.stageBPrompt || DEFAULT_STAGE_B_PROMPT;
-                const result = await executeGen(stageBPrompt);
-                if (!result || !result.trim()) throw new Error("Produced an empty response.");
-                console.log('[WritersRoom] Stage B Response:', result.substring(0, 150) + "...");
-                return result;
-            } catch (error) {
-                console.error('[WritersRoom] Stage B failed:', error);
-                window.toastr.error(`Stage B failed: ${error.message}`, "Writer's Room", { timeOut: 8000 });
-                return Promise.reject(error);
-            }
-        })());
-    }
-
-    // --- Execute Stages and Collect Results ---
-    const results = await Promise.allSettled(stagePromises);
-
-    let resultIndex = 0;
-    if (settings.stageAEnabled) {
-        if (results[resultIndex].status === 'fulfilled') responseA = results[resultIndex].value;
-        resultIndex++;
-    }
-    if (settings.stageBEnabled) {
-        if (results[resultIndex].status === 'fulfilled') responseB = results[resultIndex].value;
-    }
-    
-    if (!responseA && !responseB) {
-        throw new Error("All active generation stages failed.");
-    }
-
-    // --- Synthesis Stage: Combine & Filter ---
-    let finalResponse = null;
-    if (settings.synthesisEnabled && responseA && responseB) {
-        try {
-            window.toastr.info("Writer's Room: Synthesizing responses...", "Writer's Room", { timeOut: 5000, preventDuplicates: true });
-            if (!await applyWritersRoomEnvironment('synthesis')) throw new Error("Failed to configure environment for Synthesis.");
-            const synthesisPromptTemplate = settings.synthesisPrompt || DEFAULT_SYNTHESIS_PROMPT;
-            const synthesisPrompt = synthesisPromptTemplate
-                .replace(/\{\{RESPONSE_A\}\}/g, responseA)
-                .replace(/\{\{RESPONSE_B\}\}/g, responseB);
-            
-            finalResponse = await executeGen(synthesisPrompt);
-            if (!finalResponse || !finalResponse.trim()) {
-                console.warn('[WritersRoom] Synthesis produced an empty response, falling back to Stage A.');
-                window.toastr.warning("Synthesis was empty, using Stage A's response.", "Writer's Room");
-                finalResponse = responseA;
-            }
-        } catch (error) {
-            console.error('[WritersRoom] Synthesis failed:', error);
-            window.toastr.error(`Synthesis failed: ${error.message}. Falling back to Stage A.`, "Writer's Room");
-            finalResponse = responseA;
-        }
-    } else {
-        finalResponse = responseA || responseB; // Use A if available, otherwise B
-    }
-
-    // Return a comprehensive result object
-    return {
-        final: finalResponse,
-        stageA: responseA,
-        stageB: responseB,
-    };
 }
