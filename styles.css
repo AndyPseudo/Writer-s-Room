@@ -135,14 +135,6 @@
     color: var(--nemo-text-muted, #999);
 }
 
-/* Popup Content Styles */
-.wr-custom-binding-inputs {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 10px;
-}
-
 /* Form styling consistency */
 .writers-room-settings .form-group {
     margin: 15px 0;
@@ -180,14 +172,72 @@
 }
 
 /* Stage-specific color coding (subtle) */
-.wr-stage-config:nth-child(1) {
-    border-left-color: #2196F3; /* Blue for Stage A */
+.wr-stage-config { border-left: 3px solid transparent; }
+.wr-stage-config:nth-of-type(1) { border-left-color: #2196F3; }
+.wr-stage-config:nth-of-type(2) { border-left-color: #FF9800; }
+.wr-stage-config:nth-of-type(3) { border-left-color: #9C27B0; }
+
+
+/* NEW: Result Viewer Styles */
+#wr-view-results-btn {
+    margin-left: 5px;
+    display: none; /* Hidden by default, shown via JS */
+}
+#wr-view-results-btn.glow {
+    animation: wr-glow-anim 1s 2;
+}
+@keyframes wr-glow-anim {
+    0%, 100% { box-shadow: 0 0 5px var(--nemo-color-interactive); }
+    50% { box-shadow: 0 0 15px var(--nemo-color-interactive); }
 }
 
-.wr-stage-config:nth-child(2) {
-    border-left-color: #FF9800; /* Orange for Stage B */
+#wr-results-viewer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
-
-.wr-stage-config:nth-child(3) {
-    border-left-color: #9C27B0; /* Purple for Synthesis */
+.wr-results-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--nemo-border-color);
+    flex-shrink: 0;
+}
+.wr-tab-button {
+    padding: 10px 15px;
+    border: none;
+    background: transparent;
+    color: var(--text_color_dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-size: 1em;
+}
+.wr-tab-button.active {
+    color: var(--text_color);
+    border-bottom-color: var(--nemo-color-interactive);
+}
+.wr-results-content {
+    flex-grow: 1;
+    background-color: var(--nemo-primary-bg-sub);
+    overflow-y: auto;
+}
+.wr-tab-pane {
+    display: none;
+    padding: 15px;
+}
+.wr-tab-pane.active {
+    display: block;
+}
+.wr-tab-pane h4 {
+    margin-top: 0;
+    color: var(--nemo-color-interactive);
+}
+.wr-tab-pane pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background-color: var(--nemo-tertiary-bg);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid var(--nemo-border-color);
+    max-height: 60vh;
+    overflow-y: auto;
+    font-size: 0.9em;
 }

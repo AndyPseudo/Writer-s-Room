@@ -6,47 +6,76 @@ import { openai_setting_names, chat_completion_sources } from '../../../../scrip
 // Local module imports
 import { 
     runWritersRoomPipeline, 
-    applyWritersRoomEnvironment,
     DEFAULT_STAGE_A_PROMPT,
     DEFAULT_STAGE_B_PROMPT, 
     DEFAULT_SYNTHESIS_PROMPT 
 } from './writersroom.js';
 
 // CONFIGURATION AND STATE
-export const EXTENSION_NAME = "WritersRoom";
+const EXTENSION_NAME = "WritersRoom";
 const LOG_PREFIX = `[${EXTENSION_NAME}]`;
 const EXTENSION_FOLDER_PATH = `scripts/extensions/third-party/Writer-s-Room`;
+
+// NEW: Simple UI Logger Class
+class SimpleLogger {
+    constructor(prefix, maxSize = 100) {
+        this.prefix = prefix;
+        this.logs = [];
+        this.maxSize = maxSize;
+    }
+
+    log(message, data = null) {
+        const timestamp = new Date().toLocaleTimeString();
+        this.logs.push({ timestamp, message, data: data ? JSON.stringify(data, null, 2) : null });
+        if (this.logs.length > this.maxSize) {
+            this.logs.shift();
+        }
+        // Also log to console for power users
+        console.log(this.prefix, message, data ?? '');
+    }
+
+    show() {
+        const logContent = this.logs.length > 0
+            ? this.logs.map(entry => 
+                `[${entry.timestamp}] ${entry.message}` + (entry.data ? `\n  Data: ${entry.data}` : '')
+              ).reverse().join('\n\n')
+            : 'No log entries yet.';
+        
+        const popupContent = document.createElement('div');
+        popupContent.innerHTML = `
+            <h4>Writer's Room Debug Log</h4>
+            <p>Most recent events are at the top.</p>
+            <textarea class="text_pole" readonly style="width: 100%; height: 60vh; white-space: pre; font-family: monospace; font-size: 12px; line-height: 1.4;">${logContent}</textarea>
+        `;
+        callGenericPopup(popupContent, POPUP_TYPE.DISPLAY, 'Debug Log', { wide: true, large: true });
+    }
+}
+const wrLogger = new SimpleLogger(LOG_PREFIX);
 
 // State Variables
 let isPipelineRunning = false;
 let isAppReady = false;
 let readyQueue = [];
+let lastPipelineResults = { stageA: null, stageB: null, synthesis: null };
 
 // Default Settings
 const defaultSettings = {
-    // Writer's Room Pipeline
     writersRoomEnabled: false,
     stageAEnabled: true,
     stageBEnabled: true,
     synthesisEnabled: true,
-
-    // Stage A (Deepseek R1 - Consistent Prose)
     stageAPreset: 'Default',
     stageAApi: 'deepseek',
     stageAModel: 'deepseek-reasoner',
     stageASource: '',
     stageACustomUrl: '',
     stageAPrompt: '',
-
-    // Stage B (Gemini 2.5 Pro - Creative)
     stageBPreset: 'Default', 
     stageBApi: 'makersuite',
     stageBModel: 'gemini-2.5-pro',
     stageBSource: '',
     stageBCustomUrl: '',
     stageBPrompt: '',
-
-    // Synthesis Stage (Deepseek R1 - Combine & Filter)
     synthesisPreset: 'Default',
     synthesisApi: 'deepseek', 
     synthesisModel: 'deepseek-reasoner',
@@ -55,7 +84,6 @@ const defaultSettings = {
     synthesisPrompt: '',
 };
 
-// API Management (from ProsePolisher)
 const API_TO_SELECTOR_MAP = {
     [chat_completion_sources.OPENAI]: '#model_openai_select',
     [chat_completion_sources.CLAUDE]: '#model_claude_select',
@@ -75,7 +103,69 @@ const API_TO_SELECTOR_MAP = {
     [chat_completion_sources.NANOGPT]: '#model_nanogpt_select',
 };
 
-// UI FUNCTIONS
+// PIPELINE RESULT VIEWER
+function addPipelineResultViewButton() {
+    const buttonContainer = document.getElementById('wr-chat-buttons-container');
+    if (!buttonContainer) return;
+
+    let viewBtn = document.getElementById('wr-view-results-btn');
+    if (!viewBtn) {
+        viewBtn = document.createElement('button');
+        viewBtn.id = 'wr-view-results-btn';
+        viewBtn.className = 'menu_button fa-solid fa-microscope';
+        viewBtn.title = "View Last Writer's Room Results";
+        viewBtn.style.marginLeft = '5px'; // Add spacing
+        viewBtn.addEventListener('click', showPipelineResultPopup);
+        buttonContainer.appendChild(viewBtn);
+    }
+    viewBtn.style.display = 'inline-block';
+    viewBtn.classList.add('glow');
+    setTimeout(() => viewBtn.classList.remove('glow'), 2000);
+}
+
+function showPipelineResultPopup() {
+    if (!lastPipelineResults.stageA && !lastPipelineResults.stageB && !lastPipelineResults.synthesis) {
+        window.toastr.info("No Writer's Room results are available yet.", "Writer's Room");
+        return;
+    }
+
+    const popupContent = document.createElement('div');
+    popupContent.id = 'wr-results-viewer';
+    popupContent.innerHTML = `
+        <div class="wr-results-tabs">
+            <button class="wr-tab-button active" data-tab="stageA">Stage A</button>
+            <button class="wr-tab-button" data-tab="stageB">Stage B</button>
+            <button class="wr-tab-button" data-tab="synthesis">Synthesis</button>
+        </div>
+        <div class="wr-results-content">
+            <div class="wr-tab-pane active" data-tab="stageA">
+                <h4>Stage A Output</h4>
+                <pre>${lastPipelineResults.stageA || 'Not run or failed.'}</pre>
+            </div>
+            <div class="wr-tab-pane" data-tab="stageB">
+                <h4>Stage B Output</h4>
+                <pre>${lastPipelineResults.stageB || 'Not run or failed.'}</pre>
+            </div>
+            <div class="wr-tab-pane" data-tab="synthesis">
+                <h4>Final Synthesized Output</h4>
+                <pre>${lastPipelineResults.synthesis || 'Not run or no final result.'}</pre>
+            </div>
+        </div>
+    `;
+
+    popupContent.querySelectorAll('.wr-tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const tabName = button.dataset.tab;
+            popupContent.querySelectorAll('.wr-tab-button, .wr-tab-pane').forEach(el => el.classList.remove('active'));
+            button.classList.add('active');
+            popupContent.querySelector(`.wr-tab-pane[data-tab="${tabName}"]`).classList.add('active');
+        });
+    });
+
+    callGenericPopup(popupContent, POPUP_TYPE.DISPLAY, "Writer's Room Results", { wide: true, large: true });
+}
+
+// FULLY CORRECTED API POPUP
 async function showApiEditorPopup(stage) {
     if (!isAppReady) { 
         window.toastr.info("SillyTavern is still loading, please wait."); 
@@ -85,13 +175,11 @@ async function showApiEditorPopup(stage) {
     const settings = extension_settings[EXTENSION_NAME];
     const stageUpper = stage.charAt(0).toUpperCase() + stage.slice(1);
 
-    // Current settings for this stage
     const currentApi = settings[`${stage}Api`] || 'openai';
     const currentModel = settings[`${stage}Model`] || '';
     const currentSource = settings[`${stage}Source`] || '';
     const currentCustomUrl = settings[`${stage}CustomUrl`] || '';
 
-    // Get main UI's custom URL
     const mainCustomUrlInput = document.getElementById('custom_api_url_text');
     const mainCustomUrl = mainCustomUrlInput ? mainCustomUrlInput.value.trim() : '';
 
@@ -133,7 +221,6 @@ async function showApiEditorPopup(stage) {
     const sourceGroup = popupContent.querySelector('#wr_popup_source_group');
     const sourceInput = popupContent.querySelector('#wr_popup_source_input');
 
-    // Populate API Provider dropdown
     for (const name of Object.values(chat_completion_sources)) {
         const option = document.createElement('option');
         option.value = name;
@@ -142,53 +229,62 @@ async function showApiEditorPopup(stage) {
     }
     apiSelect.value = currentApi;
 
-    const populateModels = (api) => {
-        modelSelect.innerHTML = '';
-        let sourceSelect = null;
-
-        if (api === chat_completion_sources.OPENROUTER) {
-            sourceSelect = document.querySelector('#model_openrouter_select');
-            if (!sourceSelect || sourceSelect.options.length <= 1) {
-                sourceSelect = document.querySelector('#openrouter_model');
-            }
-        } else {
-            const sourceSelectorId = API_TO_SELECTOR_MAP[api];
-            if (sourceSelectorId) {
-                sourceSelect = document.querySelector(sourceSelectorId);
-            }
-        }
-
-        const isCustom = api === chat_completion_sources.CUSTOM;
-        modelGroup.style.display = !isCustom ? 'block' : 'none';
-        customModelGroup.style.display = isCustom ? 'block' : 'none';
-        customUrlGroup.style.display = isCustom ? 'block' : 'none';
+    // Corrected populateModels function
+    const populateModels = async (api) => {
+        modelSelect.innerHTML = '<option value="">Loading...</option>';
+        modelGroup.style.display = 'block';
+        customModelGroup.style.display = 'none';
+        customUrlGroup.style.display = 'none';
         sourceGroup.style.display = ['openai', 'openrouter', 'custom'].includes(api) ? 'block' : 'none';
 
-        if (sourceSelect) {
-            Array.from(sourceSelect.childNodes).forEach(node => {
-                modelSelect.appendChild(node.cloneNode(true));
-            });
-            if (modelSelect.options.length <= 1) {
-                modelSelect.innerHTML = '<option value="">-- No models loaded in main UI --</option>';
-            }
-        } else {
-            console.warn(`${LOG_PREFIX} Could not find source model selector for API: ${api}`);
-            modelSelect.innerHTML = '<option value="">-- No models found in main UI --</option>';
+        if (api === chat_completion_sources.CUSTOM) {
+            modelGroup.style.display = 'none';
+            customModelGroup.style.display = 'block';
+            customUrlGroup.style.display = 'block';
+            modelSelect.innerHTML = '';
+            return;
         }
+
+        const sourceSelectorId = API_TO_SELECTOR_MAP[api];
+        if (!sourceSelectorId) {
+            modelSelect.innerHTML = '<option value="">-- API not supported by this extension --</option>';
+            return;
+        }
+        
+        let sourceSelect = null;
+        for (let i = 0; i < 50; i++) { // Wait up to 5 seconds
+            sourceSelect = document.querySelector(sourceSelectorId);
+            if (sourceSelect && sourceSelect.options.length > 1) break;
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        if (!sourceSelect || sourceSelect.options.length <= 1) {
+            wrLogger.log(`Could not find or populate source model selector for API: ${api}`);
+            modelSelect.innerHTML = '<option value="">-- No models found in main UI --</option>';
+            return;
+        }
+
+        modelSelect.innerHTML = '';
+        Array.from(sourceSelect.childNodes).forEach(node => {
+            if(node.tagName === 'OPTION' || node.tagName === 'OPTGROUP') {
+                modelSelect.appendChild(node.cloneNode(true));
+            }
+        });
+        modelSelect.value = settings[`${stage}Model`] || '';
     };
 
-    populateModels(currentApi);
     apiSelect.addEventListener('change', () => populateModels(apiSelect.value));
+    await populateModels(currentApi);
 
-    modelSelect.value = currentModel;
     customModelInput.value = currentModel;
     customUrlInput.value = currentCustomUrl || mainCustomUrl;
     sourceInput.value = currentSource;
 
     popupContent.querySelector('#wr-unbind-btn').addEventListener('pointerup', () => {
         apiSelect.value = 'openai';
-        populateModels('openai');
-        modelSelect.value = '';
+        populateModels('openai').then(() => {
+            modelSelect.value = '';
+        });
         customModelInput.value = '';
         customUrlInput.value = '';
         sourceInput.value = '';
@@ -217,7 +313,6 @@ async function showApiEditorPopup(stage) {
 function updateStageApiDisplay(stage) {
     if (!isAppReady) return;
     const settings = extension_settings[EXTENSION_NAME];
-    const stageUpper = stage.charAt(0).toUpperCase() + stage.slice(1);
     const displayElement = document.getElementById(`wr_${stage}Display`);
     if (displayElement) {
         const api = settings[`${stage}Api`] || 'None';
@@ -286,38 +381,42 @@ async function showPromptEditorPopup(stage) {
 // PIPELINE EVENT HANDLING
 async function onUserMessageRenderedForWritersRoom(messageId) {
     if (!isAppReady) {
-        console.warn(`${LOG_PREFIX} onUserMessageRenderedForWritersRoom called before app ready for message ID ${messageId}.`);
+        wrLogger.log(`onUserMessageRendered called before app ready for message ID ${messageId}.`);
         return;
     }
     
     const settings = extension_settings[EXTENSION_NAME];
     const context = getContext();
 
-    if (!settings.writersRoomEnabled || isPipelineRunning) {
-        return;
-    }
+    if (!settings.writersRoomEnabled || isPipelineRunning) return;
     
     isPipelineRunning = true;
+    wrLogger.log("Writer's Room pipeline starting...");
+    lastPipelineResults = { stageA: null, stageB: null, synthesis: null };
 
     try {
-        console.log(`${LOG_PREFIX} Starting Writer's Room pipeline...`);
-        
-        const finalInstruction = await runWritersRoomPipeline();
-        if (!finalInstruction) {
-            throw new Error('Writer\'s Room pipeline failed to produce output.');
+        const pipelineResult = await runWritersRoomPipeline();
+
+        if (!pipelineResult || !pipelineResult.final) {
+            throw new Error('Pipeline failed to produce a final output.');
         }
+
+        lastPipelineResults.stageA = pipelineResult.stageA;
+        lastPipelineResults.stageB = pipelineResult.stageB;
+        lastPipelineResults.synthesis = pipelineResult.final;
+        wrLogger.log("Pipeline complete.", { results: { stageA: '...', stageB: '...', synthesis: '...' } });
 
         window.toastr.success("Writer's Room: Pipeline complete! Injecting instruction.", "Writer's Room");
         
-        // Inject the final instruction
-        const instructionArg = JSON.stringify(finalInstruction);
+        const instructionArg = JSON.stringify(pipelineResult.final);
         const finalScript = `/inject id=writers_room_final position=chat depth=1 ${instructionArg}`;
         
         await context.executeSlashCommands(finalScript);
+        addPipelineResultViewButton();
 
     } catch (error) {
-        console.error(`${LOG_PREFIX} Pipeline execution failed:`, error);
-        window.toastr.error(`Writer's Room pipeline failed: ${error.message}. Generation may proceed without enhancement.`, "Writer's Room Error");
+        wrLogger.log("Pipeline execution failed.", { error: error.message });
+        window.toastr.error(`Writer's Room pipeline failed: ${error.message}. Generation may proceed without enhancement.`, "Writer's Room Error", {timeOut: 10000});
     } finally {
         isPipelineRunning = false;
         if (context.reloadGenerationSettings) {
@@ -330,16 +429,16 @@ async function onUserMessageRenderedForWritersRoom(messageId) {
 async function runReadyQueue() {
     isAppReady = true;
     window.isAppReady = true;
-    console.log(`${LOG_PREFIX} APP_READY event received. Running queued tasks (${readyQueue.length}).`);
+    wrLogger.log(`APP_READY event received. Running ${readyQueue.length} queued tasks.`);
     while (readyQueue.length > 0) {
         const task = readyQueue.shift();
         try { 
             await task(); 
         } catch (error) { 
-            console.error(`${LOG_PREFIX} Error running queued task:`, error); 
+            wrLogger.log("Error running queued task:", { error: error.message });
         }
     }
-    console.log(`${LOG_PREFIX} Ready queue finished.`);
+    wrLogger.log("Ready queue finished.");
 }
 
 function queueReadyTask(task) {
@@ -353,15 +452,18 @@ function queueReadyTask(task) {
 // INITIALIZATION
 async function initializeExtensionCore() {
     try {
-        console.log(`${LOG_PREFIX} Initializing Writer's Room...`);
+        // Clear stale results from any previous session on load
+        lastPipelineResults = { stageA: null, stageB: null, synthesis: null };
+        wrLogger.log("Initializing Writer's Room...");
+        
         extension_settings[EXTENSION_NAME] = { ...defaultSettings, ...extension_settings[EXTENSION_NAME] };
         const settings = extension_settings[EXTENSION_NAME];
 
-        // Load settings HTML
         const settingsHtml = await fetch(`${EXTENSION_FOLDER_PATH}/settings.html`).then(res => res.text());
         document.getElementById('extensions_settings').insertAdjacentHTML('beforeend', settingsHtml);
 
-        // Bind main toggle
+        document.getElementById('wr_show_debug_log')?.addEventListener('click', () => wrLogger.show());
+
         const enableToggle = document.getElementById('wr_writersRoomEnabled');
         const settingsContainer = document.getElementById('wr_pipeline_settings_container');
         
@@ -379,16 +481,12 @@ async function initializeExtensionCore() {
             window.toastr.info(`Writer's Room ${settings.writersRoomEnabled ? 'enabled' : 'disabled'}.`);
             
             if (!settings.writersRoomEnabled) {
-                const context = getContext();
-                context.executeSlashCommands('/inject id=writers_room_final remove');
+                getContext().executeSlashCommands('/inject id=writers_room_final remove');
             }
         });
 
-        // Bind stage toggles
         ['stageA', 'stageB', 'synthesis'].forEach(stage => {
             const toggle = document.getElementById(`wr_${stage}Enabled`);
-            const stageUpper = stage.charAt(0).toUpperCase() + stage.slice(1);
-            
             toggle.checked = settings[`${stage}Enabled`];
             toggle.addEventListener('change', () => {
                 settings[`${stage}Enabled`] = toggle.checked;
@@ -396,20 +494,12 @@ async function initializeExtensionCore() {
             });
         });
 
-        // Add toggle button to chat interface
         let buttonContainer = document.getElementById('wr-chat-buttons-container');
         if (!buttonContainer) {
             buttonContainer = document.createElement('div');
             buttonContainer.id = 'wr-chat-buttons-container';
             const sendButtonHolder = document.getElementById('send_but_holder');
-            const chatBar = document.getElementById('chat_bar');
-            if (sendButtonHolder) {
-                sendButtonHolder.parentElement?.insertBefore(buttonContainer, sendButtonHolder.nextSibling);
-            } else if (chatBar) {
-                chatBar.appendChild(buttonContainer);
-            } else {
-                document.querySelector('.mes_controls')?.appendChild(buttonContainer);
-            }
+            sendButtonHolder?.parentElement?.insertBefore(buttonContainer, sendButtonHolder.nextSibling);
         }
         
         buttonContainer.insertAdjacentHTML('beforeend', 
@@ -419,8 +509,7 @@ async function initializeExtensionCore() {
         const wrToggle = document.getElementById('wr_toggle');
         const updateToggleState = () => {
             if (!isAppReady) return;
-            const enabled = settings.writersRoomEnabled;
-            wrToggle?.classList.toggle('active', enabled);
+            wrToggle?.classList.toggle('active', extension_settings[EXTENSION_NAME].writersRoomEnabled);
         };
         
         const toggleWritersRoom = () => {
@@ -436,8 +525,7 @@ async function initializeExtensionCore() {
             window.toastr.info(`Writer's Room ${settings.writersRoomEnabled ? 'enabled' : 'disabled'} for next message.`);
 
             if (!settings.writersRoomEnabled) {
-                const context = getContext();
-                context.executeSlashCommands('/inject id=writers_room_final remove');
+                getContext().executeSlashCommands('/inject id=writers_room_final remove');
             }
         };
         
@@ -445,26 +533,16 @@ async function initializeExtensionCore() {
 
         queueReadyTask(async () => {
             try {
-                // Wait for OpenAI settings to be available
                 await new Promise(resolve => {
-                    const checkOpenAISettings = () => {
-                        if (typeof openai_setting_names !== 'undefined' && Object.keys(openai_setting_names).length > 0) {
-                            resolve();
-                        } else {
-                            setTimeout(checkOpenAISettings, 100);
-                        }
-                    };
-                    checkOpenAISettings();
+                    const check = () => (typeof openai_setting_names !== 'undefined' && Object.keys(openai_setting_names).length > 0) ? resolve() : setTimeout(check, 100);
+                    check();
                 });
 
                 const presetOptions = ['<option value="Default">Default</option>', 
                     ...Object.keys(openai_setting_names).map(name => `<option value="${name}">${name}</option>`)].join('');
                 
-                // Bind preset selectors and API buttons for each stage
                 ['stageA', 'stageB', 'synthesis'].forEach(stage => {
-                    const stageUpper = stage.charAt(0).toUpperCase() + stage.slice(1);
-                    const presetSelectId = `wr_${stage}Preset`;
-                    const presetSelect = document.getElementById(presetSelectId);
+                    const presetSelect = document.getElementById(`wr_${stage}Preset`);
                     const apiBtn = document.querySelector(`.wr-select-api-btn[data-stage="${stage}"]`);
                     const promptBtn = document.querySelector(`.wr-edit-prompt-btn[data-stage="${stage}"]`);
 
@@ -476,29 +554,18 @@ async function initializeExtensionCore() {
                             saveSettingsDebounced();
                         });
                     }
-
-                    if (apiBtn) {
-                        apiBtn.addEventListener('pointerup', () => showApiEditorPopup(stage));
-                    }
-
-                    if (promptBtn) {
-                        promptBtn.addEventListener('pointerup', () => showPromptEditorPopup(stage));
-                    }
-
+                    apiBtn?.addEventListener('pointerup', () => showApiEditorPopup(stage));
+                    promptBtn?.addEventListener('pointerup', () => showPromptEditorPopup(stage));
                     updateStageApiDisplay(stage);
                 });
 
                 updateToggleState();
                 updateSettingsVisibility();
 
-                // Register event handlers
-                eventSource.makeLast(event_types.USER_MESSAGE_RENDERED, (messageId) => onUserMessageRenderedForWritersRoom(messageId));
-                eventSource.on(event_types.chat_id_changed, () => {
-                    console.log(`${LOG_PREFIX} Chat changed.`);
-                });
+                eventSource.makeLast(event_types.USER_MESSAGE_RENDERED, onUserMessageRenderedForWritersRoom);
 
             } catch (err) {
-                console.error(`${LOG_PREFIX} Error during ready queue setup:`, err);
+                wrLogger.log("Error during ready queue setup:", { error: err.message, stack: err.stack });
             }
         });
 
@@ -509,7 +576,6 @@ async function initializeExtensionCore() {
 }
 
 $(document).ready(() => {
-    console.log(`${LOG_PREFIX} Document ready. Starting initialization...`);
     eventSource.on(event_types.APP_READY, runReadyQueue);
     setTimeout(initializeExtensionCore, 100);
 });

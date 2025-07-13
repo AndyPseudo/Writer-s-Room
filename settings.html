@@ -80,12 +80,17 @@
                 <div class="wr-usage-info">
                     <h4>How to Use:</h4>
                     <ol>
-                        <li>Configure your preferred models for each stage above</li>
-                        <li>Enable Writer's Room using the toggle button in the chat interface</li>
-                        <li>Send a message - the pipeline will automatically run before generation</li>
-                        <li>The final synthesized instruction will be injected into your prompt</li>
+                        <li>Configure your preferred models for each stage above.</li>
+                        <li>Enable Writer's Room using the toggle button in the chat interface.</li>
+                        <li>Send a message - the pipeline will automatically run.</li>
+                        <li>After generation, click the <i class="fa-solid fa-microscope"></i> button to view stage outputs.</li>
                     </ol>
                     <p><strong>Note:</strong> This system makes multiple API calls per message and will increase generation time and costs.</p>
+                    <hr>
+                    <!-- NEW: DEBUG LOG BUTTON -->
+                    <button id="wr_show_debug_log" class="menu_button" style="width: 100%; margin-top: 10px;">
+                        <i class="fa-solid fa-bug"></i> View Debug Log
+                    </button>
                 </div>
 
             </div>
