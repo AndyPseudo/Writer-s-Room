@@ -58,7 +58,6 @@ let lastPipelineResults = { stageA: null, stageB: null, synthesis: null };
 
 // Default Settings
 const defaultSettings = {
-    // ... (rest of default settings are unchanged)
     writersRoomEnabled: false,
     stageAEnabled: true,
     stageBEnabled: true,
@@ -84,7 +83,6 @@ const defaultSettings = {
 };
 
 const API_TO_SELECTOR_MAP = {
-    // ... (API map is unchanged)
     [chat_completion_sources.OPENAI]: '#model_openai_select',
     [chat_completion_sources.CLAUDE]: '#model_claude_select',
     [chat_completion_sources.MAKERSUITE]: '#model_google_select',
@@ -171,7 +169,6 @@ function showPipelineResultPopup() {
 
 // UPDATED: More robust API popup
 async function showApiEditorPopup(stage) {
-    // ... (rest of function is largely the same, but with the updated populateModels)
     if (!isAppReady) { 
         window.toastr.info("SillyTavern is still loading, please wait."); 
         return; 
@@ -234,7 +231,6 @@ async function showApiEditorPopup(stage) {
     }
     apiSelect.value = currentApi;
 
-    // UPDATED: Resilient model populator
     const populateModels = async (api) => {
         modelSelect.innerHTML = '<option value="">Loading...</option>';
         modelGroup.style.display = 'block';
@@ -315,7 +311,6 @@ async function showApiEditorPopup(stage) {
 }
 
 function updateStageApiDisplay(stage) {
-    // ... (This function remains unchanged)
     if (!isAppReady) return;
     const settings = extension_settings[EXTENSION_NAME];
     const displayElement = document.getElementById(`wr_${stage}Display`);
@@ -327,7 +322,6 @@ function updateStageApiDisplay(stage) {
 }
 
 async function showPromptEditorPopup(stage) {
-    // ... (This function remains unchanged)
     if (!isAppReady) { 
         window.toastr.info("SillyTavern is still loading, please wait."); 
         return; 
@@ -431,7 +425,7 @@ async function onUserMessageRenderedForWritersRoom(messageId) {
     }
 }
 
-// APP_READY Management (unchanged)
+// APP_READY Management
 async function runReadyQueue() {
     isAppReady = true;
     window.isAppReady = true;
@@ -455,7 +449,7 @@ function queueReadyTask(task) {
     }
 }
 
-// INITIALIZATION (Updated to wire up new buttons)
+// INITIALIZATION
 async function initializeExtensionCore() {
     try {
         wrLogger.log("Initializing Writer's Room...");
@@ -465,7 +459,6 @@ async function initializeExtensionCore() {
         const settingsHtml = await fetch(`${EXTENSION_FOLDER_PATH}/settings.html`).then(res => res.text());
         document.getElementById('extensions_settings').insertAdjacentHTML('beforeend', settingsHtml);
 
-        // Wire up the new debug log button
         document.getElementById('wr_show_debug_log')?.addEventListener('click', () => wrLogger.show());
 
         const enableToggle = document.getElementById('wr_writersRoomEnabled');
